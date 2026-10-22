@@ -99,8 +99,6 @@ def programming(player):
     base_rewards = programming_intro()
     apply_rewards(player, base_rewards)
 
-    player.level_up()
-
     event = random.choice(programming_events)
 
     print()

@@ -14,56 +14,58 @@ def work_header():
 
 work_events = [
 
-{
+    {
+        "text": "You had a peaceful day at work.",
+        "energy": -2,
+        "confidence": 1
+    },
 
-"text": "You had a peaceful day at work.",
+    {
+        "text": "A customer thanked you and left a tip.",
+        "confidence": 5,
+        "experience": 2,
+        "money": 10
+    },
 
-"energy": -2,
+    {
+        "text": "You had a stressful day.",
+        "urge": 2,
+        "experience": 8
+    },
 
-"confidence": 1
+    {
+        "text": "Boss praised you and gave you a small bonus.",
+        "confidence": 8,
+        "money": 15
+    },
 
-},
-
-{
-
-"text": "A customer thanked you.",
-
-"confidence": 5,
-
-"experience": 2
-
-},
-
-{
-
-"text": "You had a stressful day.",
-
-"urge": 2,
-
-"experience": 8
-
-},
-
-{
-
-"text": "Boss praised you.",
-
-"confidence": 8,
-
-},
-
-{
-
-"text": "You had a very long shift",
-
-"energy": -20,
-
-"hope": 3
-
-}
+    {
+        "text": "You had a very long shift and got paid overtime.",
+        "energy": -20,
+        "hope": 3,
+        "money": 25
+    }
 
 ]
 
+
+def work_intro():
+
+    print("💼 You went to work today.")
+    print()
+    print("It wasn't always easy,")
+    print("but you stayed honest.")
+    print()
+    print("You earned money through hard work.")
+    print()
+    print("Another day away from gambling.")
+
+    return {
+        "energy": -15,
+        "confidence": 4,
+        "experience": 6,
+        "money": random.randint(60, 100),
+    }
 
 
 def go_to_work(player):
@@ -78,28 +80,8 @@ def go_to_work(player):
     print(event["text"])
     apply_rewards(player, event)
 
-    player.level_up()
-
-    show_rewards("Today's Work Summary",base_rewards)
-    show_rewards(event["text"],event)
+    show_rewards("Today's Work Summary", base_rewards)
+    show_rewards(event["text"], event)
+    print()
+    print("You earned your progress through honest work.")
     input("Press Enter to continue...")
-
-def work_intro():
-
-    print("💼 You went to work today.")
-    print()
-    print("It wasn't always easy,")
-    print("but you stayed honest.")
-    print()
-    print("You earned money through hard work.")
-    print()
-    print("Another day away from gambling.")
-
-    return {
-        "energy" : -15,
-        "confidence" : 4,
-        "experience" : 6,
-    }
-
-
-

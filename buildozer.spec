@@ -4,6 +4,7 @@ package.name = recoveryquest
 package.domain = org.recoveryquest
 source.dir = .
 source.include_exts = py,json
+source.exclude_dirs = tests,.github,bin
 version = 0.1
 requirements = python3,kivy
 orientation = portrait

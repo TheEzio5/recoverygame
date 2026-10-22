@@ -44,7 +44,7 @@ rest_events = [
 
     "urge": 5,
 
-    "energy": 3
+    "energy": -3
 
 },
 

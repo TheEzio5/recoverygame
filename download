@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+build/
+dist/
+bin/
+.buildozer/
+*.log
+# your personal save file contains real recovery data - keep it out of Git
+player_save.json

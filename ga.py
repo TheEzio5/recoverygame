@@ -253,6 +253,7 @@ def ga_rewards(player, rewards):
     player.confidence += confidence_gain
     player.experience += experience_gain
     player.energy += energy_gain
+    player.clamp_stats()
 
     print()
     print("Reflection")
@@ -267,6 +268,7 @@ def ga_rewards(player, rewards):
     input("Press Enter to continue...")
 
 def attend_ga(player):
+    player.meetings_attended += 1
     ga_intro(player)
 
     meeting_choice = ga_meeting_choice()

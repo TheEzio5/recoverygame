@@ -1,5 +1,6 @@
 from constants import WIDTH
 from utils import apply_rewards, show_rewards
+import rehab_rules
 import random
 
 exercise_events = [
@@ -70,6 +71,15 @@ def go_to_exercise(player):
     exercise_header()
 
     base_rewards = exercise_intro()
+
+    if rehab_rules.in_closed_rehab(player):
+        print()
+        if rehab_rules.is_outing_time(player.weekday, player.hour):
+            print("You were allowed outside, so you trained in the fresh air.")
+            base_rewards["hope"] += 2
+        else:
+            print("Outings aren't allowed right now, so you used the facility gym.")
+
     apply_rewards(player, base_rewards)
 
     event = random.choice(exercise_events)
@@ -78,8 +88,6 @@ def go_to_exercise(player):
     print(event["text"])
 
     apply_rewards(player, event)
-
-    player.level_up()
 
     show_rewards("Today's workout", base_rewards)
     show_rewards(event["text"], event)
