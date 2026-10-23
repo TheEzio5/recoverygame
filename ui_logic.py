@@ -1,0 +1,178 @@
+"""Turns the game's text into touch-screen pieces (buttons, pictures).
+Pure Python (no Kivy) so it is easy to test. The game itself is not changed:
+we read what it printed, find its numbered menus, and show them as tiles."""
+import re
+
+OPTION_RE = re.compile(r"^\s*(\d{1,2})\.\s+(.+?)\s*$")
+YESNO_RE = re.compile(r"\(1\s*=\s*yes,\s*2\s*=\s*no\)", re.I)
+NUMBER_PROMPT_RE = re.compile(r"how many|how much|limit in", re.I)
+
+# header text printed by the game -> banner picture
+TITLE_BANNERS = {
+    "RECOVERY QUEST": "title",
+    "MAIN MENU": "title",
+    "G.A. MEETING": "ga",
+    "WORK": "work",
+    "EXERCISE": "exercise",
+    "PROGRAMMING": "programming",
+    "REST": "rest",
+    "REHABILITATION": "rehab",
+    "END OF DAY": "endday",
+    "FINANCES": "finances",
+    "SAFEGUARDS": "safeguards",
+    "RECOVERY STORY": "story",
+    "PLAYER STATUS": "status",
+    "I RELAPSED TODAY": "relapse",
+}
+# headers that are only decoration (the banner already shows them)
+DROP_TITLES = set(TITLE_BANNERS) | {"YOUR JOURNEY"}
+
+# keyword in a menu label -> icon picture (first match wins)
+ICON_RULES = [
+    ("g.a.", "ga"),
+    ("rehabilitation", "rehab"),
+    ("work", "work"),
+    ("exercise", "exercise"),
+    ("programming", "programming"),
+    ("rest", "rest"),
+    ("status", "status"),
+    ("return", "back"),
+    ("back", "back"),
+    ("save", "save"),
+    ("end the day", "endday"),
+    ("finances", "finances"),
+    ("safeguards", "safeguards"),
+    ("recovery story", "story"),
+    ("relapsed", "relapse"),
+    ("start journey", "start"),
+    ("load journey", "load"),
+    ("exit", "exit"),
+]
+
+
+class Option:
+    def __init__(self, number, label, locked=False, checked=False):
+        self.number = number
+        self.label = label
+        self.locked = locked
+        self.checked = checked
+
+    def __repr__(self):
+        return f"Option({self.number!r}, {self.label!r}, locked={self.locked}, checked={self.checked})"
+
+
+class Screen:
+    """Everything the UI needs for one question from the game."""
+
+    def __init__(self, lines, options, banner, mode, prompt):
+        self.lines = lines          # text to show in the log area
+        self.options = options      # list[Option] -> tiles
+        self.banner = banner        # picture key or None (keep current)
+        self.mode = mode            # buttons | continue | yesno | number | text
+        self.prompt = prompt
+
+    @property
+    def text(self):
+        return "\n".join(self.lines)
+
+
+def icon_for(label):
+    low = label.lower()
+    for word, key in ICON_RULES:
+        if word in low:
+            return key
+    return None
+
+
+def _clean_label(label):
+    locked = "(locked)" in label
+    checked = "[x]" in label
+    label = label.replace("(locked)", "").replace("[x]", "").strip()
+    return label, locked, checked
+
+
+def _find_menu(lines):
+    """The last run of consecutive numbered lines (2+ long, counting up)."""
+    best = None
+    i = 0
+    while i < len(lines):
+        m = OPTION_RE.match(lines[i])
+        if not m:
+            i += 1
+            continue
+        j, expected = i, int(m.group(1))
+        while j < len(lines):
+            mj = OPTION_RE.match(lines[j])
+            if not mj or int(mj.group(1)) != expected:
+                break
+            expected += 1
+            j += 1
+        if j - i >= 2:
+            best = (i, j)
+        i = max(j, i + 1)
+    return best
+
+
+def _tidy(lines):
+    out = []
+    for line in lines:
+        s = line.strip()
+        if s and set(s) <= set("=-"):
+            continue                       # decoration lines
+        if s.upper() in DROP_TITLES:
+            continue                       # shown as a picture instead
+        if not s and (not out or not out[-1]):
+            continue                       # no double blank lines
+        out.append(s)
+    while out and not out[-1]:
+        out.pop()
+    return out
+
+
+def build_screen(text, prompt):
+    """text = everything printed since the last question, prompt = the question."""
+    raw = text.split("\n")
+    banner = None
+    for line in raw:
+        key = TITLE_BANNERS.get(line.strip().upper())
+        if key:
+            banner = key
+
+    menu = _find_menu([l for l in raw])
+    options = []
+    rest = raw
+    if menu:
+        start, end = menu
+        for line in raw[start:end]:
+            m = OPTION_RE.match(line)
+            label, locked, checked = _clean_label(m.group(2))
+            options.append(Option(m.group(1), label, locked, checked))
+        rest = raw[:start] + raw[end:]
+        labels = " ".join(o.label for o in options)
+        if banner is None:
+            if "Attend G.A. Meeting" in labels:
+                banner = "journey"
+            elif "Start Journey" in labels:
+                banner = "title"
+
+    lines = _tidy(rest)
+    low = prompt.lower()
+
+    if "press enter" in low:
+        mode = "continue"
+    elif YESNO_RE.search(prompt):
+        mode = "yesno"
+    elif options:
+        mode = "buttons"
+    elif NUMBER_PROMPT_RE.search(prompt):
+        mode = "number"
+    else:
+        mode = "text"
+
+    # a typed question is part of the screen, a "Choose an option:" is not
+    if mode in ("yesno", "number", "text") and prompt.strip():
+        if lines and lines[-1]:
+            lines.append("")
+        lines.append(prompt.strip())
+
+    return Screen(lines, options, banner, mode, prompt)

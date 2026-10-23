@@ -31,62 +31,76 @@ def run_activity(player, key, action):
     spend_time(player, rehab_rules.DURATION[key])
 
 
+def handle_journey_choice(player, journey_choice):
+    """Runs one menu choice. Returns True when the player leaves the journey."""
+    if journey_choice == "1":
+        run_activity(player, "ga", attend_ga)
+
+    elif journey_choice == "2":
+        if player.in_rehabilitation:
+            run_activity(player, "rehab", rehabilitation)
+        else:
+            rehabilitation(player)
+
+    elif journey_choice == "3":
+        run_activity(player, "work", go_to_work)
+
+    elif journey_choice == "4":
+        run_activity(player, "exercise", go_to_exercise)
+
+    elif journey_choice == "5":
+        run_activity(player, "programming", programming)
+
+    elif journey_choice == "6":
+        run_activity(player, "rest", rest)
+
+    elif journey_choice == "7":
+        player.show_status()
+
+    elif journey_choice == "8":
+        print("Returning to main menu...")
+        return True
+
+    elif journey_choice == "9":
+        save_game(player)
+        print("Game saved.")
+        print("Returning to main menu...")
+        return True
+
+    elif journey_choice == "10":
+        end_day(player)
+
+    elif journey_choice == "11":
+        finance_menu(player)
+
+    elif journey_choice == "12":
+        safeguards_menu(player)
+
+    elif journey_choice == "13":
+        show_history(player)
+
+    elif journey_choice == "14":
+        log_relapse(player)
+
+    else:
+        print("Invalid option.")
+
+    return False
+
+
 def journey(player):
     while True:
         show_journey_menu(player)
         journey_choice = input("Choose an option: ").strip()
-
-        if journey_choice == "1":
-            run_activity(player, "ga", attend_ga)
-
-        elif journey_choice == "2":
-            if player.in_rehabilitation:
-                run_activity(player, "rehab", rehabilitation)
-            else:
-                rehabilitation(player)
-
-        elif journey_choice == "3":
-            run_activity(player, "work", go_to_work)
-
-        elif journey_choice == "4":
-            run_activity(player, "exercise", go_to_exercise)
-
-        elif journey_choice == "5":
-            run_activity(player, "programming", programming)
-
-        elif journey_choice == "6":
-            run_activity(player, "rest", rest)
-
-        elif journey_choice == "7":
-            player.show_status()
-
-        elif journey_choice == "8":
-            print("Returning to main menu...")
-            break
-
-        elif journey_choice == "9":
-            save_game(player)
-            print("Game saved.")
-            print("Returning to main menu...")
-            break
-
-        elif journey_choice == "10":
-            end_day(player)
-
-        elif journey_choice == "11":
-            finance_menu(player)
-
-        elif journey_choice == "12":
-            safeguards_menu(player)
-
-        elif journey_choice == "13":
-            show_history(player)
-
-        elif journey_choice == "14":
-            log_relapse(player)
-
-        else:
-            print("Invalid option.")
+        try:
+            if handle_journey_choice(player, journey_choice):
+                break
+        except (KeyboardInterrupt, SystemExit, StopIteration, EOFError):
+            raise
+        except Exception as exc:
+            print()
+            print(f"Something went wrong in that screen: {exc!r}")
+            print("Your game is still running.")
 
 
 def new_journey():

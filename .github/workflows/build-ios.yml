@@ -28,9 +28,18 @@ jobs:
         run: |
           mkdir ios_src
           cp *.py ios_src/
+          cp -R assets ios_src/assets
 
       - name: Create Xcode project
         run: toolchain create RecoveryQuest "$GITHUB_WORKSPACE/ios_src"
+
+      - name: Set app icon
+        run: |
+          PROJDIR=$(ls -d *-ios | head -n 1)
+          XCODEPROJ=$(find "$PROJDIR" -maxdepth 2 -name "*.xcodeproj" | head -n 1)
+          toolchain icon "$PROJDIR" assets/icon.png \
+            || toolchain icon "$XCODEPROJ" assets/icon.png \
+            || echo "Icon step failed, building with the default icon"
 
       - name: Build unsigned .app
         run: |

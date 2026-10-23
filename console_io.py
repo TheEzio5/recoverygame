@@ -9,8 +9,13 @@ _EMOJI = re.compile(
     "\u2B00-\u2BFF\uFE0F\u200D]"
 )
 
+# emoji that carry meaning get a text stand-in before the rest are removed
+_KEEP = {"✅": "[x]", "🔒": "(locked)"}
+
 
 def strip_emoji(text):
+    for emoji, stand_in in _KEEP.items():
+        text = text.replace(emoji, stand_in)
     lines = []
     for line in text.split("\n"):
         starts_with_emoji = bool(line) and bool(_EMOJI.match(line))
@@ -22,6 +27,9 @@ def strip_emoji(text):
 
 
 class ConsoleBridge:
+    """on_output(text): called for everything the game prints.
+    on_input_needed(prompt): called (from the game thread) when the game asks a question."""
+
     def __init__(self, on_output, on_input_needed, remove_emoji=True):
         self.on_output = on_output
         self.on_input_needed = on_input_needed
@@ -38,21 +46,15 @@ class ConsoleBridge:
         builtins.print = self._real_print
         builtins.input = self._real_input
 
-    def _emit(self, text):
-        if self.remove_emoji:
-            text = strip_emoji(text)
-        self.on_output(text)
+    def _clean(self, text):
+        return strip_emoji(text) if self.remove_emoji else text
 
     def print(self, *args, sep=" ", end="\n", **kwargs):
-        self._emit(sep.join(str(a) for a in args) + end)
+        self.on_output(self._clean(sep.join(str(a) for a in args) + end))
 
     def input(self, prompt=""):
-        if prompt:
-            self._emit(str(prompt))
-        self.on_input_needed()
-        answer = self.answers.get()
-        self._emit(answer + "\n")
-        return answer
+        self.on_input_needed(self._clean(str(prompt)))
+        return self.answers.get()
 
     def submit(self, text):
         self.answers.put(text)

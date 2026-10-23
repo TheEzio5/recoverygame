@@ -51,7 +51,7 @@ def ga_intro(player):
     member2_days = random.randint(1, 365)
 
     print("=" * WIDTH)
-    print("YOUR JOURNEY".center(WIDTH))
+    print("G.A. MEETING".center(WIDTH))
     print("=" * WIDTH)
     print()
     print("You join today's meeting.")
