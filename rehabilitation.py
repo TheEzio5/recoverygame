@@ -2,6 +2,7 @@ import random
 
 from constants import WIDTH, ADDICTIONS, REHAB_DURATIONS, PROTECTED_DAILY_LIMIT
 from addictions import choose_addictions
+from help_support import offer_gambling_support
 from utils import apply_rewards, show_rewards, ask_yes_no
 
 #this is rehabilitation.py
@@ -46,9 +47,12 @@ def setup_rehabilitation(player):
         print()
         print(f"You are recovering from: {player.addiction_names()}")
         if not ask_yes_no("Keep this list?"):
+            previous = list(player.addictions)
             player.addictions = choose_addictions(player.addictions)
+            offer_gambling_support(previous, player.addictions)
     else:
         player.addictions = choose_addictions([])
+        offer_gambling_support([], player.addictions)
 
     # 2) section
     print()

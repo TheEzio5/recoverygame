@@ -9,26 +9,46 @@ LINK_GA_ONLINE = ("Online GA meetings, any time", "https://gamblersinrecovery.co
 LINK_GA_DIRECTORY = ("GA international meeting directory", "https://gamblersanonymous.org/mtgdirTOP.html")
 LINK_GA_UK = ("GA England, Wales and Ulster", "https://www.gamblersanonymous.org.uk/find-a-meeting")
 LINK_GA_HOME = ("Gamblers Anonymous", "https://gamblersanonymous.org")
-LINK_GA_20Q = ("GA's own 20 questions", "https://gamblersanonymous.org/20questions.html")
+LINK_GO_GA = ("Go to Gamblers Anonymous", "https://gamblersanonymous.org")
+LINK_GA_20Q = ("GA's official 20 questions", "https://gamblersanonymous.org/20questions.html")
 LINK_THERAPY = ("Gambling Therapy, free online support", "https://gamblingtherapy.org")
 LINK_GAM_ANON = ("Gam-Anon, for family and friends", "https://gam-anon.org")
 
 EMERGENCY = ("If you are in danger or thinking about harming yourself,\n"
-             "call your local emergency number now (112 in the EU).")
+             "call your local emergency number now (112 in the EU, 988 in the US).")
 
-# Plain-language questions based on the nine signs clinicians look at
-# (DSM-5, gambling disorder). Our own wording; answered about the last 12 months.
+HIGH_THRESHOLD = 7      # Gamblers Anonymous: most compulsive gamblers answer yes to 7 or more
+
+# Our own 20 questions (we cannot copy Gamblers Anonymous's wording, which is theirs).
+# They cover the same kinds of harm. Answer about your own gambling.
 SELF_CHECK_QUESTIONS = [
-    "Have you needed to bet more and more money to feel the same excitement?",
-    "Have you felt restless or irritable when you tried to cut down or stop gambling?",
-    "Have you tried more than once to cut back or stop, and not managed to?",
-    "Do thoughts about gambling take up a lot of your mind (reliving bets, planning the next one, finding money)?",
-    "Do you often gamble when you feel down, anxious, guilty or helpless?",
-    "After losing, do you often go back another day to win it back?",
+    # control and craving
+    "Have you gambled for longer, or with more money, than you meant to?",
+    "Have you tried to cut down or stop gambling and found you couldn't?",
+    "Do you feel restless, irritable or on edge when you try to cut down?",
+    "Do thoughts about gambling (past bets, the next bet, finding money) take up a lot of your day?",
+    "Have you needed bigger bets to get the same thrill?",
+    # feelings and triggers
+    "Do you gamble to escape stress, boredom, loneliness or a low mood?",
+    "After a loss, have you felt you had to go back soon to win it back?",
+    "Do you feel guilty, ashamed or anxious after gambling?",
+    "Do arguments or bad days make you want to gamble?",
+    # money
+    "Have you gambled money that was meant for bills, food or rent?",
+    "Have you borrowed money, used credit or sold things to gamble?",
+    "Have you asked someone to bail you out of money trouble caused by gambling?",
+    "Do you keep gambling even though your debts are growing?",
+    # honesty and relationships
     "Have you hidden or lied about how much you gamble?",
-    "Has gambling put a relationship, job, study or opportunity at risk, or cost you one?",
-    "Have you relied on other people to give or lend you money to fix problems gambling caused?",
+    "Has gambling caused arguments or distance with family, a partner or friends?",
+    "Has gambling hurt your work, your studies or your reputation?",
+    # wellbeing and life
+    "Has gambling disturbed your sleep, appetite or health?",
+    "Have you given up hobbies, plans or time with people so you could gamble?",
+    "Have you done, or considered doing, something illegal to get money for gambling?",
+    "Has gambling ever left you so hopeless that you thought about ending your life?",
 ]
+LAST_QUESTION_IS_CRISIS = True
 
 
 def interpret(yes_count):
@@ -38,18 +58,20 @@ def interpret(yes_count):
             "None of these signs came up. If gambling ever starts to feel",
             "hard to control, this check and the support here will still be here.",
         ])
-    if yes_count < 4:
+    if yes_count < HIGH_THRESHOLD:
         return ("Some signs came up", [
-            f"{yes_count} sign(s) came up. That doesn't mean you have a gambling problem,",
+            f"{yes_count} of {len(SELF_CHECK_QUESTIONS)} signs came up. That is not a diagnosis,",
             "but it is worth taking seriously. Talk to someone you trust,",
             "and consider a Gamblers Anonymous meeting or a counselor.",
         ])
-    return ("Many signs came up", [
-        f"{yes_count} of 9 signs came up. Clinicians start to look closely at gambling",
-        "when four or more of these show up within a year.",
-        "This is not a diagnosis. Only a professional can do that,",
-        "but please talk with a doctor, a counselor or a GA meeting soon.",
-        "You are not alone, and people do recover.",
+    return ("Help is there", [
+        f"{yes_count} of {len(SELF_CHECK_QUESTIONS)} answers were yes. Gamblers Anonymous says most people",
+        f"with a gambling problem answer yes to {HIGH_THRESHOLD} or more questions like these.",
+        "",
+        "This is not a diagnosis, but it is a strong sign that gambling is",
+        "hurting you. You are not alone, and people really do recover.",
+        "",
+        "Help is there. The right step is to reach out today.",
     ])
 
 
@@ -63,6 +85,58 @@ def _header(title):
 
 def _link(link):
     print(f"{link[0]}: {link[1]}")
+
+
+def rehab_info():
+    _header("HOW REHAB CAN HELP")
+    print("Rehab (treatment) is structured help for addiction.")
+    print("It can be a stay at a facility, a day program, or regular visits")
+    print("while you live at home. What is offered depends on where you live.")
+    print()
+    print("How it can help people with gambling addiction:")
+    print("- A safe, structured space away from betting and triggers.")
+    print("- Talking therapy (often CBT) to change the thoughts and habits")
+    print("  that keep the gambling going.")
+    print("- Support from counselors and from others who understand.")
+    print("- Practical help with debt, money and repairing relationships.")
+    print("- A plan for staying well once treatment ends.")
+    print()
+    print("It works well together with Gamblers Anonymous meetings.")
+    print("Your doctor or a counselor can tell you what is available near you.")
+    print("In this game you can try it from the journey menu: Go to Rehabilitation.")
+    print()
+    _link(LINK_GO_GA)
+    _link(LINK_THERAPY)
+    input("Press Enter to continue...")
+
+
+def gambling_support_page():
+    """Shown when someone says gambling is one of their addictions."""
+    while True:
+        _header("SUPPORT FOR GAMBLING")
+        print("You chose gambling. Thank you for being honest about it.")
+        print("You don't have to do this alone. Real help is free and available now:")
+        print()
+        _link(LINK_GO_GA)
+        _link(LINK_GA_ONLINE)
+        print()
+        print("1. How rehab can help people with gambling addiction")
+        print("2. Continue my journey")
+        choice = input("Choose an option: ").strip()
+        if choice == "1":
+            rehab_info()
+        elif choice == "2":
+            return
+        else:
+            print("Invalid option.")
+
+
+def offer_gambling_support(previous, current):
+    """Show the support page the moment gambling is newly chosen."""
+    if "gambling" in current and "gambling" not in previous:
+        gambling_support_page()
+        return True
+    return False
 
 
 def struggling_now():
@@ -113,16 +187,26 @@ def other_support():
 
 def self_check():
     _header("GAMBLING SELF-CHECK")
-    print("This is a short reflection, not a diagnosis.")
-    print("Think about the last 12 months and answer honestly.")
+    total = len(SELF_CHECK_QUESTIONS)
+    print(f"{total} short yes/no questions about your gambling.")
+    print("This is a reflection, not a diagnosis. Answer honestly.")
     print("Nothing is saved or shared.")
+    print()
+    print("Gamblers Anonymous has its own version too:")
+    _link(LINK_GA_20Q)
     print()
 
     yes = 0
-    total = len(SELF_CHECK_QUESTIONS)
     for number, question in enumerate(SELF_CHECK_QUESTIONS, 1):
-        if ask_yes_no(f"Question {number} of {total}: {question}"):
+        said_yes = ask_yes_no(f"Question {number} of {total}: {question}")
+        if said_yes:
             yes += 1
+        if said_yes and LAST_QUESTION_IS_CRISIS and number == total:
+            print()
+            print("Thank you for telling the truth. That matters.")
+            print("Please reach out to someone right now.")
+            print(EMERGENCY)
+            input("Press Enter to continue...")
 
     title, lines = interpret(yes)
     _header("GAMBLING SELF-CHECK")
@@ -131,10 +215,29 @@ def self_check():
     for line in lines:
         print(line)
     print()
-    print("Gamblers Anonymous also has its own well-known list of 20 questions:")
-    _link(LINK_GA_20Q)
-    _link(LINK_GA_ONLINE)
-    print()
+
+    if yes >= HIGH_THRESHOLD:
+        _link(LINK_GO_GA)
+        _link(LINK_GA_ONLINE)
+        print()
+        print(EMERGENCY)
+        while True:
+            print()
+            print("1. How rehab can help people with gambling addiction")
+            print("2. Back")
+            choice = input("Choose an option: ").strip()
+            if choice == "1":
+                rehab_info()
+            elif choice == "2":
+                break
+            else:
+                print("Invalid option.")
+        return yes
+
+    if yes > 0:
+        _link(LINK_GO_GA)
+        _link(LINK_GA_ONLINE)
+        print()
     print(EMERGENCY)
     input("Press Enter to continue...")
     return yes
@@ -150,7 +253,7 @@ def help_session():
         print()
         print("1. I'm struggling right now")
         print("2. Find a real Gamblers Anonymous meeting")
-        print("3. Take the gambling self-check")
+        print("3. Take the gambling self-check (20 questions)")
         print("4. Other places to get support")
         print("5. Back to the game")
 

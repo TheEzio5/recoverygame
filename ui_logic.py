@@ -30,6 +30,8 @@ TITLE_BANNERS = {
     "GET HELP NOW": "help",
     "GAMBLING SELF-CHECK": "test",
     "FIND A MEETING": "ga",
+    "SUPPORT FOR GAMBLING": "help",
+    "HOW REHAB CAN HELP": "rehab",
 }
 # headers that are only decoration (the banner already shows them)
 DROP_TITLES = set(TITLE_BANNERS) | {"YOUR JOURNEY"}
@@ -43,6 +45,7 @@ ICON_RULES = [
     ("gamblers anonymous", "ga"),
     ("g.a.", "ga"),
     ("rehabilitation", "rehab"),
+    ("rehab", "rehab"),
     ("work", "work"),
     ("exercise", "exercise"),
     ("programming", "programming"),
@@ -225,3 +228,32 @@ def build_screen(text, prompt):
         lines.append(shown)
 
     return Screen(lines, options, banner, mode, prompt, find_links(raw))
+
+
+STAT_INFO = [
+    ("Willpower", "willpower", "Your strength to resist urges."),
+    ("Hope", "hope", "Belief that things can get better."),
+    ("Energy", "energy", "Fuel for activities. Rest and sleep restore it."),
+    ("Confidence", "confidence", "Trust in yourself. Grows with honest effort."),
+    ("Urge", "urge", "The pull toward old habits. Lower is better."),
+]
+
+
+def status_text(player):
+    """The whole status as plain text (used as a fallback and for tests)."""
+    lines = [
+        f"{player.name}  -  Level {player.level}",
+        f"Recovery days: {player.recovery_days}   Journey days: {player.journey_days}",
+        f"Money: €{player.money}   Debt: €{player.debt}",
+        f"Recovering from: {player.addiction_names()}",
+    ]
+    if player.in_rehabilitation:
+        lines.append(f"{player.rehab_section.capitalize()} rehabilitation, "
+                     f"{player.rehab_days_remaining} day(s) left")
+    lines.append("")
+    for label, attr, meaning in STAT_INFO:
+        lines.append(f"{label}: {getattr(player, attr)} / 100")
+        lines.append(meaning)
+    lines.append(f"Experience: {player.experience} / {player.next_level}")
+    lines.append("Fills up to raise your level.")
+    return "\n".join(lines)

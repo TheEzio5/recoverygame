@@ -29,20 +29,12 @@ import recovery_main
 import help_support
 from console_io import ConsoleBridge, HELP_TOKEN
 from constants import DAY_START_HOUR, DAY_END_HOUR
-from ui_logic import Option, Screen, build_screen, icon_for
+from ui_logic import STAT_INFO, Option, Screen, build_screen, icon_for, status_text
 
 ASSETS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets")
 MAX_LINES = 120          # a Label is one texture; keep it far below GPU limits
 BANNER_RATIO = 420 / 1080
 
-# what each number means (shown on the Status card)
-STAT_INFO = [
-    ("Willpower", "willpower", "Your strength to resist urges."),
-    ("Hope", "hope", "Belief that things can get better."),
-    ("Energy", "energy", "Fuel for activities. Rest and sleep restore it."),
-    ("Confidence", "confidence", "Trust in yourself. Grows with honest effort."),
-    ("Urge", "urge", "The pull toward old habits. Lower is better."),
-]
 
 BG = (0.07, 0.08, 0.11, 1)
 TILE = (0.16, 0.18, 0.25, 1)
@@ -150,6 +142,7 @@ class RecoveryQuestApp(App):
         Clock.schedule_interval(lambda dt: self.update_hud(), 1)
 
         self.scroll = ScrollView(do_scroll_x=False)
+        self.scroll.size_hint_min_y = dp(160)        # never squeezed to nothing
         self.log = Label(text="", size_hint_y=None, halign="left", valign="top",
                          font_size="16sp", color=TEXT, padding=(dp(14), dp(8)))
         self.log.bind(
@@ -162,6 +155,8 @@ class RecoveryQuestApp(App):
         self.last_tapped = None
         self.quit_requested = False
         self.opened_links = []
+        self.status_return = None
+        self.status_fallbacks = 0
         root.add_widget(self.scroll)
         self.update_hud()
 
@@ -227,10 +222,11 @@ class RecoveryQuestApp(App):
         tapped, self.last_tapped = self.last_tapped, None
         player = recovery_main.current_player
         if tapped and icon_for(tapped) == "status" and player is not None:
-            self._set_body(self._status_card(player))
-            self.status_cards_shown += 1
-        else:
-            self._set_body(self.log)
+            self.status_return = screen          # remember the menu we came from
+            self._show_status_page(player)
+            return
+        self.status_return = None
+        self._set_body(self.log)
         self.scroll.scroll_y = 1
 
         if screen.mode == "buttons":
@@ -262,7 +258,8 @@ class RecoveryQuestApp(App):
                           size_hint_y=None)
         grid.bind(minimum_height=grid.setter("height"))
         for label, url in links:                   # real-world links first
-            tile = Tile(f"Open: {label}", asset("icons", "link.png"), link=True)
+            shown = label if label.lower().startswith("go to") else f"Open: {label}"
+            tile = Tile(shown, asset("icons", "link.png"), link=True)
             tile.bind(on_release=lambda _w, u=url: self.open_link(u))
             grid.add_widget(tile)
         for opt in options:
@@ -273,7 +270,7 @@ class RecoveryQuestApp(App):
             grid.add_widget(tile)
         sv = ScrollView(do_scroll_x=False)
         sv.add_widget(grid)
-        self.controls.height = Window.height * 0.46
+        self.controls.height = Window.height * 0.40
         self.controls.add_widget(sv)
 
     def _show_continue(self):
@@ -365,6 +362,28 @@ class RecoveryQuestApp(App):
             self.scroll.clear_widgets()
             self.scroll.add_widget(widget)
             self.body = widget
+
+    def _show_status_page(self, player):
+        """Full page: the status gets the whole screen, with a Back button."""
+        self.set_banner("status")
+        try:
+            self._set_body(self._status_card(player))
+            self.status_cards_shown += 1
+        except Exception:                        # never leave the page empty
+            self.status_fallbacks += 1
+            self._set_body(self.log)
+            self.log.text = status_text(player)
+        self.scroll.scroll_y = 1
+        self.controls.clear_widgets()
+        back = Tile("Back", asset("icons", "back.png"))
+        back.bind(on_release=lambda _w: self.back_from_status())
+        self.controls.height = dp(88)
+        self.controls.add_widget(back)
+
+    def back_from_status(self):
+        screen, self.status_return = self.status_return, None
+        if screen is not None:
+            self.present(screen)
 
     def _status_card(self, player):
         card = BoxLayout(orientation="vertical", size_hint_y=None, spacing=dp(6),

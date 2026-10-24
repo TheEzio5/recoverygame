@@ -18,7 +18,7 @@ import random
 
 import rehab_rules
 from constants import WIDTH
-from help_support import help_session
+from help_support import help_session, offer_gambling_support
 
 # this is recovery_main.py (your original main.py, wrapped in main() so the app can start it)
 
@@ -164,6 +164,7 @@ def new_journey():
     player.money = money
     player.debt = debt
     player.addictions = choose_addictions([])
+    offer_gambling_support([], player.addictions)
 
     print()
     print(f"Welcome, {player.name}")

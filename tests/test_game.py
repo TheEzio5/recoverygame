@@ -268,6 +268,7 @@ class TestPlaythrough(InTempDir):
         script = [
             "1", "Pero", "x", "106", "100", "1300",      # new game (bad number first)
             "1", "3", "5",                                 # gambling + substances
+            "2",                                           # continue past the gambling support page
             "2",                                           # Go to Rehabilitation
             "1",                                           # keep list? yes
             "2", "2",                                      # closed, 14 days

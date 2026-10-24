@@ -68,7 +68,8 @@ class TestBuildScreen(unittest.TestCase):
         for label, key in [("Attend G.A. Meeting", "ga"), ("Go to Work", "work"),
                            ("Practice programming", "programming"), ("Return to Main Menu", "back"),
                            ("End the day", "endday"), ("I relapsed today", "relapse"),
-                           ("Load Journey", "load"), ("Groceries and essentials (€10)", None)]:
+                           ("Load Journey", "load"), ("Go to Gamblers Anonymous", "ga"),
+                           ("How rehab can help people with gambling addiction", "rehab"), ("Groceries and essentials (€10)", None)]:
             self.assertEqual(icon_for(label), key, label)
         for key in {icon_for(l) for l in ["Attend G.A. Meeting", "Go to Work", "Exit", "Save Game"]}:
             self.assertTrue(os.path.exists(os.path.join(ROOT, "assets", "icons", f"{key}.png")), key)
@@ -207,6 +208,8 @@ class TestAppThroughUI(unittest.TestCase):
         self.step("Pero"); self.step("10"); self.step("100"); self.step("0")
         self.tap(addiction)
         s = self.tap("Done")
+        if any(o.label == "Continue my journey" for o in s.options):   # gambling support page
+            s = self.tap("Continue my journey")
         while s.mode == "continue":
             s = self.step("")
         return s
@@ -229,6 +232,12 @@ class TestAppThroughUI(unittest.TestCase):
         s = self.tap("Gambling")
         self.assertTrue(s.options[0].checked)
         s = self.tap("Done")
+        self.assertEqual((s.mode, s.banner), ("buttons", "help"))       # gambling support page
+        self.assertEqual(s.links[0][0], "Go to Gamblers Anonymous")
+        s = self.tap("How rehab can help")
+        self.assertEqual((s.mode, s.banner), ("continue", "rehab"))
+        s = self.step("")
+        s = self.tap("Continue my journey")
         self.assertEqual((s.mode, s.banner, len(s.options)), ("buttons", "status", 15))
         s = self.tap("Rest")                                      # a picture screen
         self.assertEqual((s.mode, s.banner), ("continue", "rest"))
@@ -251,7 +260,7 @@ class TestAppThroughUI(unittest.TestCase):
         self.assertEqual((s.mode, s.banner), ("buttons", "help"))
         labels = [o.label for o in s.options]
         self.assertEqual(labels[0], "I'm struggling right now")
-        self.assertIn("Take the gambling self-check", labels)
+        self.assertIn("Take the gambling self-check (20 questions)", labels)
         s = self.tap("Back to the game")
         self.assertEqual([o.label for o in s.options], [o.label for o in main_menu.options])
         self.assertEqual(s.banner, "title")
@@ -288,15 +297,46 @@ class TestAppThroughUI(unittest.TestCase):
         self.tap("Get help now")
         s = self.tap("self-check")
         self.assertEqual((s.mode, s.banner), ("yesno", "test"))
-        self.assertIn("Question 1 of 9", s.text)
-        self.assertNotIn("1 = yes", s.text)                      # buttons replace the typing hint
-        for _ in range(4):
+        self.assertIn("Question 1 of 20", s.text)
+        self.assertNotIn("1 = yes", s.text)                          # buttons replace the typing hint
+        self.assertTrue(any("20questions" in u for _, u in s.links))  # official GA test one tap away
+        for _ in range(7):
             s = self.step("1")
-        for _ in range(5):
+        for _ in range(13):
             s = self.step("2")
+        self.assertEqual((s.mode, s.banner), ("buttons", "test"))
+        self.assertIn("Help is there", s.text)
+        self.assertEqual(s.links[0][0], "Go to Gamblers Anonymous")
+        self.assertEqual([o.label for o in s.options],
+                         ["How rehab can help people with gambling addiction", "Back"])
+        s = self.tap("How rehab can help")
+        self.assertEqual((s.mode, s.banner), ("continue", "rehab"))
+        self.assertIn("Talking therapy", s.text)
+        s = self.step("")
+        s = self.tap("Back")
+        self.assertEqual(s.banner, "help")                           # back at the help menu
+
+    def test_six_yes_answers_do_not_trigger_the_help_page(self):
+        self.wait_for_screen(0)
+        self.tap("Get help now")
+        s = self.tap("self-check")
+        for _ in range(6):
+            s = self.step("1")
+        for _ in range(14):
+            s = self.step("2")
+        self.assertIn("Some signs came up", s.text)
         self.assertEqual(s.mode, "continue")
-        self.assertIn("Many signs came up", s.text)
-        self.assertTrue(any("20questions" in u for _, u in s.links))
+
+    def test_hopeless_answer_shows_care_message_at_once(self):
+        self.wait_for_screen(0)
+        self.tap("Get help now")
+        s = self.tap("self-check")
+        for _ in range(19):
+            s = self.step("2")
+        s = self.step("1")
+        self.assertEqual(s.mode, "continue")
+        self.assertIn("reach out to someone right now", s.text)
+        self.assertIn("112", s.text)
 
     def test_load_shows_welcome_back_with_name(self):
         self.start_new_game("Gambling")
@@ -316,16 +356,38 @@ class TestAppThroughUI(unittest.TestCase):
         self.assertTrue(self.app.quit_requested)
         self.assertEqual(self.exited, [True])
 
-    def test_status_tile_shows_a_card_with_meanings(self):
+    def card_texts(self):
+        return [w.kw.get("text", "") for w in self.app.body.children]
+
+    def test_status_tile_opens_a_full_page_with_numbers_and_meanings(self):
         self.start_new_game("Gambling")
         self.assertEqual(self.app.status_cards_shown, 0)
-        s = self.tap("Check Status")
+        self.tap("Check Status")
         self.assertEqual(self.app.status_cards_shown, 1)
-        self.assertIs(self.app.body is self.app.log, False)       # card replaced the log
-        self.assertEqual(s.mode, "buttons")                       # tiles still there
-        s = self.tap("Rest")                                      # next screen: normal log again
+        self.assertIsNot(self.app.body, self.app.log)               # card replaced the text area
+        texts = " | ".join(self.card_texts())
+        for needle in ("Pero", "Level 1", "Recovery days: 10", "Money: €100",
+                       "Willpower: 50 / 100", "Hope: 50 / 100", "Energy: 50 / 100",
+                       "Confidence: 50 / 100", "Urge: 50 / 100", "Experience: 0 / 100",
+                       "The pull toward old habits", "Gambling"):
+            self.assertIn(needle, texts)
+        self.assertEqual(len(self.app.controls.children), 1)         # just the Back tile
+        self.app.back_from_status()                                  # back to the menu tiles
+        self.assertIs(self.app.body, self.app.log)
+        s = self.app.screen
+        self.assertEqual((s.mode, len(s.options)), ("buttons", 15))
+        s = self.tap("Rest")                                         # game carries on normally
         self.assertIs(self.app.body, self.app.log)
         self.assertEqual(self.app.status_cards_shown, 1)
+
+    def test_status_page_never_empty_even_if_the_card_fails(self):
+        self.start_new_game("Gambling")
+        with mock.patch.object(self.app, "_status_card", side_effect=RuntimeError("boom")):
+            self.tap("Check Status")
+        self.assertEqual(self.app.status_fallbacks, 1)
+        self.assertIs(self.app.body, self.app.log)
+        self.assertIn("Urge: 50 / 100", self.app.log.text)
+        self.assertIn("Level 1", self.app.log.text)
 
     def test_clock_bar_and_time_hints(self):
         s = self.start_new_game("Gambling")

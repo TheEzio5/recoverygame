@@ -28,37 +28,87 @@ def feed(func, answers, *args):
 class TestSelfCheck(unittest.TestCase):
     def test_interpretation_tiers(self):
         self.assertEqual(help_support.interpret(0)[0], "No signs came up")
-        for n in (1, 3):
+        for n in (1, 6):
             self.assertEqual(help_support.interpret(n)[0], "Some signs came up")
-        for n in (4, 7, 9):
+        for n in (7, 12, 20):
             title, lines = help_support.interpret(n)
-            self.assertEqual(title, "Many signs came up")
+            self.assertEqual(title, "Help is there")
             self.assertIn("not a diagnosis", " ".join(lines))
+            self.assertIn("reach out today", " ".join(lines))
 
-    def test_nine_questions_original_wording(self):
-        self.assertEqual(len(help_support.SELF_CHECK_QUESTIONS), 9)
-        self.assertEqual(len(set(help_support.SELF_CHECK_QUESTIONS)), 9)
+    def test_threshold_is_the_gamblers_anonymous_seven(self):
+        self.assertEqual(help_support.HIGH_THRESHOLD, 7)
 
-    def run_check(self, answers):
-        return feed(help_support.self_check, answers + [""])
+    def test_twenty_unique_questions(self):
+        qs = help_support.SELF_CHECK_QUESTIONS
+        self.assertEqual(len(qs), 20)
+        self.assertEqual(len(set(qs)), 20)
+        self.assertTrue(all(q.endswith("?") for q in qs))
+
+    def run_check(self, answers, extra=()):
+        return feed(help_support.self_check, list(answers) + list(extra))
 
     def test_all_no(self):
-        yes, text = self.run_check(["2"] * 9)
+        yes, text = self.run_check(["2"] * 20, [""])
         self.assertEqual(yes, 0)
         self.assertIn("No signs came up", text)
 
-    def test_four_yes_points_to_help(self):
-        yes, text = self.run_check(["1"] * 4 + ["2"] * 5)
-        self.assertEqual(yes, 4)
-        self.assertIn("Many signs came up", text)
-        self.assertIn("gamblersanonymous.org/20questions.html", text)
+    def test_seven_yes_shows_help_text_and_the_right_next_steps(self):
+        yes, text = self.run_check(["1"] * 7 + ["2"] * 13, ["1", "", "2"])
+        self.assertEqual(yes, 7)
+        self.assertIn("Help is there", text)
+        self.assertIn("Go to Gamblers Anonymous: https://gamblersanonymous.org", text)
+        self.assertIn("HOW REHAB CAN HELP", text)
         self.assertIn("emergency number", text)
+
+    def test_six_yes_is_below_the_line(self):
+        yes, text = self.run_check(["1"] * 6 + ["2"] * 14, [""])
+        self.assertEqual(yes, 6)
+        self.assertIn("Some signs came up", text)
+        self.assertNotIn("HOW REHAB CAN HELP", text)
+
+    def test_official_20_questions_link_is_offered(self):
+        _, text = self.run_check(["2"] * 20, [""])
+        self.assertIn("https://gamblersanonymous.org/20questions.html", text)
+
+    def test_hopeless_answer_gets_an_immediate_caring_message(self):
+        # only the last question answered yes
+        yes, text = self.run_check(["2"] * 19 + ["1"], ["", ""])
+        self.assertEqual(yes, 1)
+        self.assertIn("Please reach out to someone right now", text)
+        self.assertIn("988", text)
 
     def test_nothing_is_saved(self):
         p = Player("T", 5)
         before = dict(vars(p))
-        self.run_check(["1"] * 9)
+        self.run_check(["1"] * 20, ["", "2"])
         self.assertEqual(dict(vars(p)), before)
+
+
+class TestGamblingSupportPage(unittest.TestCase):
+    def test_page_links_and_rehab_info(self):
+        _, text = feed(help_support.gambling_support_page, ["1", "", "2"])
+        self.assertIn("SUPPORT FOR GAMBLING", text)
+        self.assertIn("Go to Gamblers Anonymous: https://gamblersanonymous.org", text)
+        self.assertIn("HOW REHAB CAN HELP", text)
+        self.assertIn("Therapy", text.title().replace("Talking Therapy", "Therapy"))
+
+    def test_only_when_gambling_is_newly_chosen(self):
+        self.assertFalse(help_support.offer_gambling_support([], ["alcohol"]))
+        self.assertFalse(help_support.offer_gambling_support(["gambling"], ["gambling", "alcohol"]))
+        shown, text = feed(help_support.offer_gambling_support, ["2"], [], ["gambling"])
+        self.assertTrue(shown)
+        self.assertIn("SUPPORT FOR GAMBLING", text)
+
+    def test_new_game_with_gambling_shows_it(self):
+        script = ["1", "T", "5", "0", "0", "1", "5", "2", "8", "4"]
+        _, text = feed(recovery_main.main, script)
+        self.assertIn("SUPPORT FOR GAMBLING", text)
+
+    def test_new_game_with_alcohol_does_not(self):
+        script = ["1", "T", "5", "0", "0", "2", "5", "8", "4"]
+        _, text = feed(recovery_main.main, script)
+        self.assertNotIn("SUPPORT FOR GAMBLING", text)
 
 
 class TestHelpMenu(unittest.TestCase):
