@@ -71,8 +71,6 @@ def load_game():
         # Real days advance the recovery streak only. In-game journey days
         # advance when you actually play through a day.
         print()
-        print(f"Welcome back, {player.name}!")
-        print()
         print(f"{days_passed} real day{'s' if days_passed != 1 else ''} have passed.")
         print("Your recovery continues.")
         player.add_recovery_days(days_passed)

@@ -18,7 +18,8 @@ def show_main_menu():
 
     print("1. Start Journey 🌅")
     print("2. Load Journey 💾")
-    print("3. Exit 🚪")
+    print("3. Get help now 🆘")
+    print("4. Exit 🚪")
     print()
 
 
@@ -58,3 +59,4 @@ def show_journey_menu(player):
     print("12. Safeguards 🛡️")
     print("13. Recovery story 📖")
     print("14. I relapsed today")
+    print("15. Get help now 🆘")

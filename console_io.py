@@ -4,6 +4,8 @@ import builtins
 import queue
 import re
 
+HELP_TOKEN = "\x00help"        # sent by the always-visible Help button
+
 _EMOJI = re.compile(
     "[\U0001F000-\U0001FFFF\u2190-\u21FF\u2300-\u23FF\u2600-\u27BF"
     "\u2B00-\u2BFF\uFE0F\u200D]"
@@ -27,14 +29,18 @@ def strip_emoji(text):
 
 
 class ConsoleBridge:
-    """on_output(text): called for everything the game prints.
-    on_input_needed(prompt): called (from the game thread) when the game asks a question."""
+    """Collects what the game prints. When the game asks a question, on_input_needed(prompt, block)
+    is called from the game thread, where block = everything printed since the last question.
+    If the Help button is pressed, help_handler() runs inside the game thread and the
+    original question is asked again afterwards."""
 
-    def __init__(self, on_output, on_input_needed, remove_emoji=True):
-        self.on_output = on_output
+    def __init__(self, on_input_needed, remove_emoji=True, help_handler=None):
         self.on_input_needed = on_input_needed
         self.remove_emoji = remove_emoji
+        self.help_handler = help_handler
+        self.in_help = False
         self.answers = queue.Queue()
+        self._buffer = []
         self._real_print = builtins.print
         self._real_input = builtins.input
 
@@ -49,12 +55,30 @@ class ConsoleBridge:
     def _clean(self, text):
         return strip_emoji(text) if self.remove_emoji else text
 
+    def take_buffer(self):
+        text = "".join(self._buffer)
+        self._buffer = []
+        return text
+
     def print(self, *args, sep=" ", end="\n", **kwargs):
-        self.on_output(self._clean(sep.join(str(a) for a in args) + end))
+        self._buffer.append(self._clean(sep.join(str(a) for a in args) + end))
 
     def input(self, prompt=""):
-        self.on_input_needed(self._clean(str(prompt)))
-        return self.answers.get()
+        prompt = self._clean(str(prompt))
+        block = self.take_buffer()
+        while True:
+            self.on_input_needed(prompt, block)
+            answer = self.answers.get()
+            if answer != HELP_TOKEN:
+                return answer
+            if self.help_handler is not None and not self.in_help:
+                self.in_help = True
+                try:
+                    self.help_handler()
+                finally:
+                    self.in_help = False
+                    self.take_buffer()          # drop leftovers, then re-ask the same question
+            # (help pressed while already in help: just show the same screen again)
 
     def submit(self, text):
         self.answers.put(text)

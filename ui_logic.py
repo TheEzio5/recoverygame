@@ -3,9 +3,12 @@ Pure Python (no Kivy) so it is easy to test. The game itself is not changed:
 we read what it printed, find its numbered menus, and show them as tiles."""
 import re
 
+from rehab_rules import DURATION
+
 OPTION_RE = re.compile(r"^\s*(\d{1,2})\.\s+(.+?)\s*$")
 YESNO_RE = re.compile(r"\(1\s*=\s*yes,\s*2\s*=\s*no\)", re.I)
 NUMBER_PROMPT_RE = re.compile(r"how many|how much|limit in", re.I)
+LINK_RE = re.compile(r"^\s*(?:(.+?)\s*:\s*)?(https?://\S+?)\s*$")
 
 # header text printed by the game -> banner picture
 TITLE_BANNERS = {
@@ -23,12 +26,21 @@ TITLE_BANNERS = {
     "RECOVERY STORY": "story",
     "PLAYER STATUS": "status",
     "I RELAPSED TODAY": "relapse",
+    "WELCOME BACK": "welcome",
+    "GET HELP NOW": "help",
+    "GAMBLING SELF-CHECK": "test",
+    "FIND A MEETING": "ga",
 }
 # headers that are only decoration (the banner already shows them)
 DROP_TITLES = set(TITLE_BANNERS) | {"YOUR JOURNEY"}
 
 # keyword in a menu label -> icon picture (first match wins)
 ICON_RULES = [
+    ("get help", "help"),
+    ("struggling", "help"),
+    ("other places", "help"),
+    ("self-check", "test"),
+    ("gamblers anonymous", "ga"),
     ("g.a.", "ga"),
     ("rehabilitation", "rehab"),
     ("work", "work"),
@@ -51,11 +63,12 @@ ICON_RULES = [
 
 
 class Option:
-    def __init__(self, number, label, locked=False, checked=False):
+    def __init__(self, number, label, locked=False, checked=False, hint=""):
         self.number = number
         self.label = label
         self.locked = locked
         self.checked = checked
+        self.hint = hint            # e.g. "8 h": how much game time it takes
 
     def __repr__(self):
         return f"Option({self.number!r}, {self.label!r}, locked={self.locked}, checked={self.checked})"
@@ -64,7 +77,8 @@ class Option:
 class Screen:
     """Everything the UI needs for one question from the game."""
 
-    def __init__(self, lines, options, banner, mode, prompt):
+    def __init__(self, lines, options, banner, mode, prompt, links=None):
+        self.links = links or []    # [(label, url)] -> tiles that open the browser
         self.lines = lines          # text to show in the log area
         self.options = options      # list[Option] -> tiles
         self.banner = banner        # picture key or None (keep current)
@@ -82,6 +96,37 @@ def icon_for(label):
         if word in low:
             return key
     return None
+
+
+def time_hint(label):
+    """How much in-game time a journey menu choice costs."""
+    low = label.lower()
+    if low.startswith("go to rehabilitation"):
+        return ""
+    if low.startswith("rehabilitation activity"):
+        return f"{DURATION['rehab']} h"
+    if "end the day" in low:
+        return "until morning"
+    key = {"ga": "ga", "work": "work", "exercise": "exercise",
+           "programming": "programming", "rest": "rest"}.get(icon_for(label))
+    return f"{DURATION[key]} h" if key else ""
+
+
+def find_links(lines):
+    """Lines like 'Label: https://example.org' become tappable link tiles."""
+    found, seen = [], set()
+    for line in lines:
+        m = LINK_RE.match(line)
+        if not m:
+            continue
+        label, url = m.group(1), m.group(2)
+        if url in seen:
+            continue
+        seen.add(url)
+        if not label:
+            label = re.sub(r"^https?://(www\.)?", "", url).split("/")[0]
+        found.append((label.strip(), url))
+    return found
 
 
 def _clean_label(label):
@@ -149,6 +194,9 @@ def build_screen(text, prompt):
             options.append(Option(m.group(1), label, locked, checked))
         rest = raw[:start] + raw[end:]
         labels = " ".join(o.label for o in options)
+        if "Attend G.A. Meeting" in labels:          # the journey menu
+            for o in options:
+                o.hint = time_hint(o.label)
         if banner is None:
             if "Attend G.A. Meeting" in labels:
                 banner = "journey"
@@ -171,8 +219,9 @@ def build_screen(text, prompt):
 
     # a typed question is part of the screen, a "Choose an option:" is not
     if mode in ("yesno", "number", "text") and prompt.strip():
+        shown = YESNO_RE.sub("", prompt).strip().rstrip(":").strip() if mode == "yesno" else prompt.strip()
         if lines and lines[-1]:
             lines.append("")
-        lines.append(prompt.strip())
+        lines.append(shown)
 
-    return Screen(lines, options, banner, mode, prompt)
+    return Screen(lines, options, banner, mode, prompt, find_links(raw))

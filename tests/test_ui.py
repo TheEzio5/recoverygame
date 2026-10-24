@@ -7,6 +7,7 @@ import threading
 import time
 import types
 import unittest
+from unittest import mock
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
@@ -20,7 +21,7 @@ class TestBuildScreen(unittest.TestCase):
         labels = ["Attend G.A. Meeting", "Go to Rehabilitation", "Go to Work  (locked)",
                   "Exercise", "Practice programming", "Rest", "Check Status",
                   "Return to Main Menu", "Save Game", "End the day", "Finances",
-                  "Safeguards", "Recovery story", "I relapsed today"]
+                  "Safeguards", "Recovery story", "I relapsed today", "Get help now"]
         menu = "\n".join(f"{i}. {l}" for i, l in enumerate(labels, 1))
         return ("\n\n=================================\n"
                 "          YOUR JOURNEY\n"
@@ -30,7 +31,7 @@ class TestBuildScreen(unittest.TestCase):
     def test_journey_menu_becomes_tiles(self):
         s = build_screen(self.journey_text(), "Choose an option: ")
         self.assertEqual(s.mode, "buttons")
-        self.assertEqual(len(s.options), 14)
+        self.assertEqual(len(s.options), 15)
         self.assertEqual(s.banner, "journey")
         self.assertTrue(s.options[2].locked)
         self.assertEqual(s.options[2].label, "Go to Work")
@@ -76,6 +77,7 @@ class TestBuildScreen(unittest.TestCase):
         from ui_logic import TITLE_BANNERS, ICON_RULES
         for key in set(TITLE_BANNERS.values()) | {"journey"}:
             self.assertTrue(os.path.exists(os.path.join(ROOT, "assets", "banners", f"{key}.png")), key)
+        self.assertTrue(os.path.exists(os.path.join(ROOT, "assets", "icons", "link.png")))
         for _, key in ICON_RULES:
             self.assertTrue(os.path.exists(os.path.join(ROOT, "assets", "icons", f"{key}.png")), key)
 
@@ -126,7 +128,7 @@ def install_kivy_stubs():
     names = ["kivy", "kivy.app", "kivy.clock", "kivy.core", "kivy.core.window",
              "kivy.graphics", "kivy.metrics", "kivy.uix", "kivy.uix.behaviors",
              "kivy.uix.boxlayout", "kivy.uix.button", "kivy.uix.gridlayout",
-             "kivy.uix.image", "kivy.uix.label", "kivy.uix.scrollview",
+             "kivy.uix.image", "kivy.uix.label", "kivy.uix.progressbar", "kivy.uix.scrollview",
              "kivy.uix.textinput"]
     for n in names:
         sys.modules[n] = types.ModuleType(n)
@@ -140,6 +142,10 @@ def install_kivy_stubs():
         def schedule_once(fn, timeout=0):
             fn(0)
 
+        @staticmethod
+        def schedule_interval(fn, interval):
+            return None
+
     win = Stub()
     win.height = 800
     sys.modules["kivy.app"].App = App
@@ -150,7 +156,7 @@ def install_kivy_stubs():
     sys.modules["kivy.metrics"].dp = lambda v: v
     sys.modules["kivy.uix.behaviors"].ButtonBehavior = type("ButtonBehavior", (), {})
     for mod, cls in [("boxlayout", "BoxLayout"), ("button", "Button"), ("gridlayout", "GridLayout"),
-                     ("image", "Image"), ("label", "Label"), ("scrollview", "ScrollView"),
+                     ("image", "Image"), ("label", "Label"), ("progressbar", "ProgressBar"), ("scrollview", "ScrollView"),
                      ("textinput", "TextInput")]:
         setattr(sys.modules[f"kivy.uix.{mod}"], cls, type(cls, (Stub,), {}))
 
@@ -168,6 +174,8 @@ class TestAppThroughUI(unittest.TestCase):
         self.tmp = tempfile.mkdtemp()
         self.app = self.main.RecoveryQuestApp()
         self.app.user_data_dir = self.tmp
+        self.exited = []
+        self.app._hard_exit = lambda: self.exited.append(True)
         self.app.build()
         self.app.on_start()
 
@@ -221,7 +229,7 @@ class TestAppThroughUI(unittest.TestCase):
         s = self.tap("Gambling")
         self.assertTrue(s.options[0].checked)
         s = self.tap("Done")
-        self.assertEqual((s.mode, s.banner, len(s.options)), ("buttons", "status", 14))
+        self.assertEqual((s.mode, s.banner, len(s.options)), ("buttons", "status", 15))
         s = self.tap("Rest")                                      # a picture screen
         self.assertEqual((s.mode, s.banner), ("continue", "rest"))
         s = self.step("")
@@ -234,6 +242,112 @@ class TestAppThroughUI(unittest.TestCase):
         self.assertEqual((s.mode, s.banner), ("continue", "work"))
         self.step("")
         self.assertGreaterEqual(self.money() - before, 60)
+
+    def test_help_button_from_anywhere_and_back(self):
+        main_menu = self.wait_for_screen(0)
+        before = self.app.screen_count
+        self.app.request_help()
+        s = self.wait_for_screen(before)
+        self.assertEqual((s.mode, s.banner), ("buttons", "help"))
+        labels = [o.label for o in s.options]
+        self.assertEqual(labels[0], "I'm struggling right now")
+        self.assertIn("Take the gambling self-check", labels)
+        s = self.tap("Back to the game")
+        self.assertEqual([o.label for o in s.options], [o.label for o in main_menu.options])
+        self.assertEqual(s.banner, "title")
+
+    def test_help_button_in_a_text_prompt_keeps_the_question(self):
+        self.wait_for_screen(0)
+        s = self.tap("Start Journey")
+        self.assertEqual(s.mode, "text")
+        question = s.text
+        before = self.app.screen_count
+        self.app.request_help()
+        self.wait_for_screen(before)
+        s = self.tap("Back to the game")
+        self.assertEqual((s.mode, s.text), ("text", question))
+        s = self.step("Pero")
+        self.assertEqual(s.mode, "number")                       # the game carried on normally
+
+    def test_meeting_screen_has_link_tiles_that_open_the_browser(self):
+        self.wait_for_screen(0)
+        self.tap("Get help now")
+        s = self.tap("Find a real Gamblers Anonymous meeting")
+        self.assertEqual((s.mode, s.banner), ("continue", "ga"))
+        urls = [u for _, u in s.links]
+        self.assertEqual(urls[0], "https://gamblersinrecovery.com")
+        self.assertIn("https://gamblersanonymous.org/mtgdirTOP.html", urls)
+        with mock.patch("webbrowser.open", return_value=True) as opener:
+            self.app.open_link(urls[0])
+        opener.assert_called_once_with("https://gamblersinrecovery.com")
+        self.assertEqual(self.app.opened_links, [urls[0]])
+        self.assertIn("Opening the link", self.app.log.text)
+
+    def test_self_check_by_touch(self):
+        self.wait_for_screen(0)
+        self.tap("Get help now")
+        s = self.tap("self-check")
+        self.assertEqual((s.mode, s.banner), ("yesno", "test"))
+        self.assertIn("Question 1 of 9", s.text)
+        self.assertNotIn("1 = yes", s.text)                      # buttons replace the typing hint
+        for _ in range(4):
+            s = self.step("1")
+        for _ in range(5):
+            s = self.step("2")
+        self.assertEqual(s.mode, "continue")
+        self.assertIn("Many signs came up", s.text)
+        self.assertTrue(any("20questions" in u for _, u in s.links))
+
+    def test_load_shows_welcome_back_with_name(self):
+        self.start_new_game("Gambling")
+        s = self.tap("Save Game")
+        self.assertEqual(s.banner, "title")
+        s = self.tap("Load Journey")
+        self.assertEqual((s.mode, s.banner), ("continue", "welcome"))
+        self.assertIn("Welcome back, Pero.", s.text)
+        s = self.step("")
+        self.assertEqual(s.banner, "journey")
+
+    def test_exit_tile_closes_the_app(self):
+        s = self.wait_for_screen(0)
+        s = self.tap("Exit")
+        self.assertEqual(s.mode, "end")
+        self.assertIn("Goodbye", s.text)
+        self.assertTrue(self.app.quit_requested)
+        self.assertEqual(self.exited, [True])
+
+    def test_status_tile_shows_a_card_with_meanings(self):
+        self.start_new_game("Gambling")
+        self.assertEqual(self.app.status_cards_shown, 0)
+        s = self.tap("Check Status")
+        self.assertEqual(self.app.status_cards_shown, 1)
+        self.assertIs(self.app.body is self.app.log, False)       # card replaced the log
+        self.assertEqual(s.mode, "buttons")                       # tiles still there
+        s = self.tap("Rest")                                      # next screen: normal log again
+        self.assertIs(self.app.body, self.app.log)
+        self.assertEqual(self.app.status_cards_shown, 1)
+
+    def test_clock_bar_and_time_hints(self):
+        s = self.start_new_game("Gambling")
+        self.app.update_hud()
+        self.assertIn("Day 1", self.app.hud_game.text)
+        self.assertIn("08:00", self.app.hud_game.text)
+        self.assertIn("Real time:", self.app.hud_real.text)
+        hints = {o.label: o.hint for o in s.options}
+        self.assertEqual(hints["Go to Work"], "8 h")
+        self.assertEqual(hints["Practice programming"], "3 h")
+        self.assertEqual(hints["End the day"], "until morning")
+        self.assertEqual(hints["Go to Rehabilitation"], "")
+        self.assertEqual(hints["Check Status"], "")
+
+    def test_doing_something_moves_the_clock(self):
+        self.start_new_game("Gambling")
+        s = self.tap("Rest")
+        s = self.step("")                                         # Continue
+        self.assertIn("Time passes: 08:00 -> 11:00", s.text)
+        self.app.update_hud()
+        self.assertIn("11:00", self.app.hud_game.text)
+        self.assertEqual(self.app.hud_bar.value, 3)
 
     def test_locked_tile_is_marked_and_refused(self):
         self.start_new_game("Gambling")

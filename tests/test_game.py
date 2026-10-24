@@ -281,7 +281,7 @@ class TestPlaythrough(InTempDir):
             "2", "1", "",                                  # rehab therapy session
             "11", "1", "50", "4",                          # finances: banking blocked
             "9",                                           # save + return
-            "3",                                           # exit
+            "4",                                           # exit
         ]
         # wrap: 'keep this list?' is yes -> "1", so script above is consistent
         result, text = feed(recovery_main.main, script)

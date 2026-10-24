@@ -14,9 +14,42 @@ from safeguards import safeguards_menu
 from relapse import log_relapse
 from history import show_history
 from utils import ask_int
+import random
+
 import rehab_rules
+from constants import WIDTH
+from help_support import help_session
 
 # this is recovery_main.py (your original main.py, wrapped in main() so the app can start it)
+
+
+current_player = None   # read by the touch UI to show the live game clock
+
+WELCOME_LINES = [
+    "One day at a time.",
+    "Stay strong. You've got this.",
+    "Progress, not perfection.",
+    "You don't have to do this alone.",
+    "Every day you keep going is a win.",
+    "Be proud of how far you've come.",
+    "Today is another chance to move forward.",
+    "Small steps still move you forward.",
+]
+
+
+def welcome_back(player):
+    print()
+    print("=" * WIDTH)
+    print("WELCOME BACK".center(WIDTH))
+    print("=" * WIDTH)
+    print()
+    print(f"Welcome back, {player.name}.")
+    print(random.choice(WELCOME_LINES))
+    print()
+    player.show_recovery_message()
+    print()
+    print(f"Current streak: {player.recovery_days} day(s)")
+    input("Press Enter to continue...")
 
 
 def run_activity(player, key, action):
@@ -28,7 +61,12 @@ def run_activity(player, key, action):
         return
     if action(player) is False:       # player backed out, no time passes
         return
+    day_before, hour_before = player.journey_days, player.hour
     spend_time(player, rehab_rules.DURATION[key])
+    if player.journey_days == day_before:
+        print()
+        print(f"Time passes: {hour_before:02d}:00 -> {player.hour:02d}:00 "
+              f"(+{rehab_rules.DURATION[key]} h)")
 
 
 def handle_journey_choice(player, journey_choice):
@@ -82,6 +120,9 @@ def handle_journey_choice(player, journey_choice):
     elif journey_choice == "14":
         log_relapse(player)
 
+    elif journey_choice == "15":
+        help_session()
+
     else:
         print("Invalid option.")
 
@@ -89,6 +130,15 @@ def handle_journey_choice(player, journey_choice):
 
 
 def journey(player):
+    global current_player
+    current_player = player
+    try:
+        _journey_loop(player)
+    finally:
+        current_player = None
+
+
+def _journey_loop(player):
     while True:
         show_journey_menu(player)
         journey_choice = input("Choose an option: ").strip()
@@ -148,9 +198,13 @@ def main():
             except (FileNotFoundError, ValueError, KeyError):
                 print("No usable saved journey found. Start a new one first.")
                 continue
+            welcome_back(player)
             journey(player)
 
         elif main_choice == "3":
+            help_session()
+
+        elif main_choice == "4":
             print("Goodbye! 👋")
             break
         else:

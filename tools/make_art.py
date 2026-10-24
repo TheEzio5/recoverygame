@@ -85,6 +85,9 @@ class Pen:
     def circle(self, cx, cy, r, fill=WHITE):
         self.d.ellipse(self.p(cx - r, cy - r, cx + r, cy + r), fill=fill)
 
+    def ellipse(self, x0, y0, x1, y1, fill=WHITE):
+        self.d.ellipse(self.p(x0, y0, x1, y1), fill=fill)
+
     def poly(self, pts, fill=WHITE):
         self.d.polygon([(x * self.s, y * self.s) for x, y in pts], fill=fill)
 
@@ -216,6 +219,31 @@ def g_exit(p):
     p.rect(14, 80, 86, 85, r=2)
 
 
+def g_help(p):                      # lifebuoy
+    p.circle(50, 50, 34)
+    p.circle(50, 50, 16, fill=CLEAR)
+    for a in (45, 135, 225, 315):
+        r = math.radians(a)
+        p.line([(50 + 15 * math.cos(r), 50 + 15 * math.sin(r)),
+                (50 + 37 * math.cos(r), 50 + 37 * math.sin(r))], 7, fill=CLEAR)
+
+
+def g_link(p):                      # globe
+    p.circle(50, 50, 33)
+    p.circle(50, 50, 27, fill=CLEAR)
+    p.ellipse(37, 17, 63, 83)
+    p.ellipse(42, 22, 58, 78, fill=CLEAR)
+    p.rect(17, 47, 83, 53)
+    p.rect(47, 17, 53, 83)
+
+
+def g_test(p):                      # clipboard with a check mark
+    p.rect(24, 22, 76, 86, r=6)
+    p.rect(38, 14, 62, 30, r=4)
+    p.rect(44, 19, 56, 25, fill=CLEAR)
+    p.line([(36, 58), (46, 69), (66, 44)], 8, fill=CLEAR)
+
+
 GLYPHS = {
     # key: (drawing, tile colour, banner title)
     "ga": (g_ga, "#2e9c8f", "G.A. Meeting"),
@@ -235,6 +263,9 @@ GLYPHS = {
     "start": (g_start, "#e89a3c", "Start Journey"),
     "load": (g_load, "#4a86a8", "Load Journey"),
     "exit": (g_exit, "#8a4a4a", "Exit"),
+    "help": (g_help, "#c0504d", "Get Help Now"),
+    "link": (g_link, "#2f7fbf", "Open link"),
+    "test": (g_test, "#5a76b8", "Self-check"),
 }
 
 
@@ -266,14 +297,15 @@ def make_banners():
     W, H = 1080, 420
     font = ImageFont.truetype(FONT_BOLD, 84)
     # scene banners
-    for key, title in (("title", "Recovery Quest"), ("journey", "Your Journey")):
+    for key, title in (("title", "Recovery Quest"), ("journey", "Your Journey"),
+                       ("welcome", "Welcome back")):
         img = scene(W, H).convert("RGBA")
         d = ImageDraw.Draw(img)
         d.text((W // 2, 70), title, font=font, fill=(255, 236, 190, 255), anchor="mm")
         img.convert("RGB").save(os.path.join(ASSETS, "banners", f"{key}.png"))
     # activity banners: coloured sky + big glyph + hills
     for key, (_, color, title) in GLYPHS.items():
-        if key in ("back", "exit", "load", "start", "save"):
+        if key in ("back", "exit", "load", "start", "save", "link"):
             continue
         base = hexc(color)
         dark = lerp(base, (10, 14, 30), 0.65)
